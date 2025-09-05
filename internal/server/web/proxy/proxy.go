@@ -226,7 +226,6 @@ func NewProxyServer(log *zap.Logger, mode, privacyMode string, c cache, m KeyMan
 	// Static file serving with caching for proxy interface
 	staticGroup := router.Group("/")
 	staticGroup.Use(staticCacheMiddleware())
-	staticGroup.StaticFile("/proxy.html", "/Users/daniel/Project/iotex/BricksLLM/proxy.html")
 
 	srv := &http.Server{
 		Addr:    ":8002",
@@ -815,7 +814,7 @@ func buildProxyUrl(c *gin.Context) (string, error) {
 		return "https://api.openai.com/v1/threads/" + c.Param("thread_id") + "/runs", nil
 	}
 
-	if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/runs/:run_id/submit_tool_outputs" && c.Request.Method == http.MethodPost {
+	if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/run/run/:run_id/submit_tool_outputs" && c.Request.Method == http.MethodPost {
 		return "https://api.openai.com/v1/threads/" + c.Param("thread_id") + "/runs/" + c.Param("run_id") + "/submit_tool_outputs", nil
 	}
 

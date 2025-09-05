@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+	_ "embed"
 
 	"github.com/bricks-cloud/bricksllm/internal/event"
 	"github.com/bricks-cloud/bricksllm/internal/key"
@@ -20,6 +21,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )
+
+//go:embed ../../../../docs/admin.html
+var adminHTML []byte
 
 type ProviderSettingsManager interface {
 	CreateSetting(setting *provider.Setting) (*provider.Setting, error)
@@ -116,8 +120,9 @@ func NewAdminServer(log *zap.Logger, mode string, m KeyManager, krm KeyReporting
 	// Static file serving with caching for swagger documentation and admin interface
 	staticGroup := router.Group("/")
 	staticGroup.Use(staticCacheMiddleware())
-	staticGroup.Static("/docs", "/Users/daniel/Project/iotex/BricksLLM/docs")
-	staticGroup.StaticFile("/admin.html", "/Users/daniel/Project/iotex/BricksLLM/admin.html")
+	staticGroup.GET("/admin.html", func(c *gin.Context) {
+		c.Data(http.StatusOK, "text/html; charset=utf-8", adminHTML)
+	})
 
 	srv := &http.Server{
 		Addr:    ":8001",
