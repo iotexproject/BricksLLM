@@ -575,3 +575,70 @@ func getVllmChatCompletionsHandler(prod, private bool, client http.Client) gin.H
 		telemetry.Timing("bricksllm.proxy.get_vllm_chat_completions_handler.streaming_latency", time.Since(start), nil, 1)
 	}
 }
+
+func getVllmModelsHandler(prod, private bool, client http.Client) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		log := util.GetLogFromCtx(c)
+		telemetry.Incr("bricksllm.proxy.get_vllm_models_handler.requests", nil, 1)
+		
+		if c == nil || c.Request == nil {
+			JSON(c, http.StatusInternalServerError, "[BricksLLM] context is empty")
+			return
+		}
+
+		url := c.GetString("vllmUrl")
+		if len(url) == 0 {
+			logError(log, "vllm url cannot be empty", prod, errors.New("url is empty"))
+			JSON(c, http.StatusInternalServerError, "[BricksLLM] vllm url is empty")
+			return
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), c.GetDuration("requestTimeout"))
+		defer cancel()
+
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, url+"/v1/models", nil)
+		if err != nil {
+			logError(log, "error when creating vllm models http request", prod, err)
+			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to create vllm models http request")
+			return
+		}
+
+		copyHttpHeaders(c.Request, req, c.GetBool("removeUserAgent"))
+
+		start := time.Now()
+		res, err := client.Do(req)
+		if err != nil {
+			telemetry.Incr("bricksllm.proxy.get_vllm_models_handler.http_client_error", nil, 1)
+			logError(log, "error when sending http request to vllm models endpoint", prod, err)
+			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to send http request to vllm models")
+			return
+		}
+
+		defer res.Body.Close()
+
+		for name, values := range res.Header {
+			for _, value := range values {
+				c.Header(name, value)
+			}
+		}
+
+		dur := time.Since(start)
+		
+		bytes, err := io.ReadAll(res.Body)
+		if err != nil {
+			logError(log, "error when reading vllm models response body", prod, err)
+			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to read vllm models response body")
+			return
+		}
+
+		if res.StatusCode == http.StatusOK {
+			telemetry.Incr("bricksllm.proxy.get_vllm_models_handler.success", nil, 1)
+			telemetry.Timing("bricksllm.proxy.get_vllm_models_handler.success_latency", dur, nil, 1)
+		} else {
+			telemetry.Incr("bricksllm.proxy.get_vllm_models_handler.error_response", nil, 1)
+			telemetry.Timing("bricksllm.proxy.get_vllm_models_handler.error_latency", dur, nil, 1)
+		}
+
+		c.Data(res.StatusCode, "application/json", bytes)
+	}
+}

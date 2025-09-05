@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/bricks-cloud/bricksllm/internal/event"
@@ -110,6 +112,12 @@ func NewAdminServer(log *zap.Logger, mode string, m KeyManager, krm KeyReporting
 	router.PATCH("/api/users/:id", getUpdateUserHandler(um, prod))
 	router.PATCH("/api/users", getUpdateUserViaTagsAndUserIdHandler(um, prod))
 	router.GET("/api/users", getGetUsersHandler(um, prod))
+
+	// Static file serving with caching for swagger documentation and admin interface
+	staticGroup := router.Group("/")
+	staticGroup.Use(staticCacheMiddleware())
+	staticGroup.Static("/docs", "/Users/daniel/Project/iotex/BricksLLM/docs")
+	staticGroup.StaticFile("/admin.html", "/Users/daniel/Project/iotex/BricksLLM/admin.html")
 
 	srv := &http.Server{
 		Addr:    ":8001",
@@ -1149,4 +1157,44 @@ func logError(log *zap.Logger, msg string, prod bool, err error) {
 	}
 
 	log.Debug(fmt.Sprintf("%s | %v", msg, err))
+}
+
+// staticCacheMiddleware adds caching headers for static files
+func staticCacheMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Set cache control headers
+		c.Header("Cache-Control", "public, max-age=3600") // Cache for 1 hour
+		c.Header("ETag", fmt.Sprintf(`"%x"`, time.Now().Unix()))
+		
+		// Handle conditional requests
+		if match := c.GetHeader("If-None-Match"); match != "" {
+			c.Status(http.StatusNotModified)
+			c.Abort()
+			return
+		}
+
+		// Set content type based on file extension
+		path := c.Request.URL.Path
+		ext := strings.ToLower(filepath.Ext(path))
+		switch ext {
+		case ".html":
+			c.Header("Content-Type", "text/html; charset=utf-8")
+		case ".css":
+			c.Header("Content-Type", "text/css")
+		case ".js":
+			c.Header("Content-Type", "application/javascript")
+		case ".json":
+			c.Header("Content-Type", "application/json")
+		case ".png":
+			c.Header("Content-Type", "image/png")
+		case ".jpg", ".jpeg":
+			c.Header("Content-Type", "image/jpeg")
+		case ".svg":
+			c.Header("Content-Type", "image/svg+xml")
+		case ".ico":
+			c.Header("Content-Type", "image/x-icon")
+		}
+		
+		c.Next()
+	}
 }

@@ -17,22 +17,60 @@ services:
       - '5432:5432'
     volumes:
       - postgresql:/var/lib/postgresql/data
-  # bricksllm:
-  #   depends_on:
-  #     - redis
-  #     - postgresql
-  #   image: luyuanxin1995/bricksllm
-  #   environment:
-  #     - POSTGRESQL_USERNAME=postgres
-  #     - POSTGRESQL_PASSWORD=postgres
-  #     - REDIS_PASSWORD=eYVX7EwVmmxKPCDmwMtyKVge8oLd2t81
-  #     - POSTGRESQL_HOSTS=postgresql
-  #     - REDIS_HOSTS=redis
-  #   ports:
-  #     - '8001:8001'
-  #     - '8002:8002'
-  #   command:
-  #     - '-m=dev'
+  bricksllm:
+    depends_on:
+      - redis
+      - postgresql
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+      args:
+        # Database Configuration
+        POSTGRESQL_HOSTS: postgresql
+        POSTGRESQL_DB_NAME: postgres
+        POSTGRESQL_USERNAME: postgres
+        POSTGRESQL_PASSWORD: postgres
+        POSTGRESQL_SSL_MODE: disable
+        POSTGRESQL_PORT: 5432
+        POSTGRESQL_READ_TIME_OUT: 2m
+        POSTGRESQL_WRITE_TIME_OUT: 5s
+        
+        # Redis Configuration
+        REDIS_HOSTS: redis
+        REDIS_PORT: 6379
+        REDIS_USERNAME: ""
+        REDIS_PASSWORD: eYVX7EwVmmxKPCDmwMtyKVge8oLd2t81
+        REDIS_READ_TIME_OUT: 1s
+        REDIS_WRITE_TIME_OUT: 500ms
+        
+        # Application Configuration
+        IN_MEMORY_DB_UPDATE_INTERVAL: 5s
+        PROXY_TIMEOUT: 600s
+        NUMBER_OF_EVENT_MESSAGE_CONSUMERS: 3
+        CUSTOM_POLICY_DETECTION_TIMEOUT: 10m
+        REMOVE_USER_AGENT: false
+        
+        # Telemetry & Monitoring
+        TELEMETRY_PROVIDER: statsd
+        STATS_CONFIG_ENABLED: true
+        STATS_CONFIG_ADDRESS: 127.0.0.1:8125
+        PROMETHEUS_ENABLED: false
+        PROMETHEUS_PORT: 2112
+        
+        # External Services
+        AMAZON_REGION: us-west-2
+        AMAZON_REQUEST_TIMEOUT: 5s
+        AMAZON_CONNECTION_TIMEOUT: 10s
+        
+        # Optional API Keys (from host environment or defaults)
+        OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+        ADMIN_PASS: ${ADMIN_PASS:-}
+        CONFIG_FILE_NAME: ${CONFIG_FILE_NAME:-}
+    ports:
+      - '8001:8001'
+      - '8002:8002'
+    command:
+      - '-m=production'
 volumes:
   redis:
     driver: local

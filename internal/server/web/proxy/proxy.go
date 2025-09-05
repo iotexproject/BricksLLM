@@ -9,6 +9,8 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/bricks-cloud/bricksllm/internal/event"
@@ -189,6 +191,7 @@ func NewProxyServer(log *zap.Logger, mode, privacyMode string, c cache, m KeyMan
 	// vllm
 	router.POST("/api/providers/vllm/v1/chat/completions", getVllmChatCompletionsHandler(prod, private, client))
 	router.POST("/api/providers/vllm/v1/completions", getVllmCompletionsHandler(prod, private, client))
+	router.GET("/api/providers/vllm/v1/models", getVllmModelsHandler(prod, private, client))
 
 	// deepinfra
 	router.POST("/api/providers/deepinfra/v1/chat/completions", getDeepinfraChatCompletionsHandler(prod, private, client))
@@ -219,6 +222,11 @@ func NewProxyServer(log *zap.Logger, mode, privacyMode string, c cache, m KeyMan
 	router.GET("/api/providers/openai/v1/vector_stores/:vector_store_id/file_batches/:batch_id", getGetVectorStoreFileBatchHandler(prod, client))
 	router.POST("/api/providers/openai/v1/vector_stores/:vector_store_id/file_batches/:batch_id/cancel", getCancelVectorStoreFileBatchHandler(prod, client))
 	router.GET("/api/providers/openai/v1/vector_stores/:vector_store_id/file_batches/:batch_id/files", getListVectorStoreFileBatchFilesHandler(prod, client))
+
+	// Static file serving with caching for proxy interface
+	staticGroup := router.Group("/")
+	staticGroup.Use(staticCacheMiddleware())
+	staticGroup.StaticFile("/proxy.html", "/Users/daniel/Project/iotex/BricksLLM/proxy.html")
 
 	srv := &http.Server{
 		Addr:    ":8002",
@@ -1004,6 +1012,7 @@ func (ps *ProxyServer) Run() {
 		// vllm
 		ps.log.Info("PORT 8002 | POST   | /api/providers/vllm/v1/chat/completions is ready for forwarding vllm chat completions requests")
 		ps.log.Info("PORT 8002 | POST   | /api/providers/vllm/v1/completions is ready for forwarding vllm completions requests")
+		ps.log.Info("PORT 8002 | GET    | /api/providers/vllm/v1/models is ready for forwarding vllm models requests")
 
 		// deepinfra
 		ps.log.Info("PORT 8002 | POST   | /api/providers/deepinfra/v1/chat/completions is ready for forwarding deepinfra chat completions requests")
@@ -1361,4 +1370,44 @@ func (ps *ProxyServer) Shutdown(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+// staticCacheMiddleware adds caching headers for static files
+func staticCacheMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Set cache control headers
+		c.Header("Cache-Control", "public, max-age=3600") // Cache for 1 hour
+		c.Header("ETag", fmt.Sprintf(`"%x"`, time.Now().Unix()))
+		
+		// Handle conditional requests
+		if match := c.GetHeader("If-None-Match"); match != "" {
+			c.Status(http.StatusNotModified)
+			c.Abort()
+			return
+		}
+
+		// Set content type based on file extension
+		path := c.Request.URL.Path
+		ext := strings.ToLower(filepath.Ext(path))
+		switch ext {
+		case ".html":
+			c.Header("Content-Type", "text/html; charset=utf-8")
+		case ".css":
+			c.Header("Content-Type", "text/css")
+		case ".js":
+			c.Header("Content-Type", "application/javascript")
+		case ".json":
+			c.Header("Content-Type", "application/json")
+		case ".png":
+			c.Header("Content-Type", "image/png")
+		case ".jpg", ".jpeg":
+			c.Header("Content-Type", "image/jpeg")
+		case ".svg":
+			c.Header("Content-Type", "image/svg+xml")
+		case ".ico":
+			c.Header("Content-Type", "image/x-icon")
+		}
+		
+		c.Next()
+	}
 }
