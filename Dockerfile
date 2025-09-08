@@ -10,6 +10,7 @@ FROM --platform=linux/amd64 alpine:3.20
 RUN apk --no-cache add ca-certificates
 WORKDIR /usr/bin
 COPY --from=build /go/src/github.com/bricks-cloud/bricksllm/bin /go/bin
+COPY --from=build /go/src/github.com/bricks-cloud/bricksllm/docs /docs
 
 # Build-time arguments for configuration
 ARG POSTGRESQL_HOSTS=localhost

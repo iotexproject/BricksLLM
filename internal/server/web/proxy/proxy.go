@@ -226,6 +226,9 @@ func NewProxyServer(log *zap.Logger, mode, privacyMode string, c cache, m KeyMan
 	// Static file serving with caching for proxy interface
 	staticGroup := router.Group("/")
 	staticGroup.Use(staticCacheMiddleware())
+	// Serve the entire docs directory to make dist/ assets available
+	staticGroup.Static("/dist", "/docs/dist")
+	staticGroup.StaticFile("/proxy.html", "/docs/proxy.html")
 
 	srv := &http.Server{
 		Addr:    ":8002",
@@ -1199,7 +1202,7 @@ func logEmbeddingRequest(log *zap.Logger, prod, private bool, r *goopenai.Embedd
 		}
 
 		if !private {
-			fields = append(fields, zap.Any("input", r.Input))
+			fields = append(fields, zap.Any("input", r.Input));
 		}
 
 		log.Info("openai embedding request", fields...)
