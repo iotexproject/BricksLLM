@@ -20,7 +20,7 @@ tags:
   - name: Routes
 
 servers:
-  - url: p01--llm-gateway--gvr2tvqjtwcn.code.run
+  - url: /
     description: Admin server for configuring BricksLLM
     variables:
       protocol:
