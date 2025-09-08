@@ -20,12 +20,12 @@ tags:
   - name: Routes
 
 servers:
-  - url: localhost:8001
+  - url: p01--llm-gateway--gvr2tvqjtwcn.code.run
     description: Admin server for configuring BricksLLM
     variables:
       protocol:
-        enum: [http]
-        default: http
+        enum: [http, https]
+        default: https
 paths:
   /api/health:
     get:
