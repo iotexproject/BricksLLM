@@ -119,6 +119,7 @@ func NewAdminServer(log *zap.Logger, mode string, m KeyManager, krm KeyReporting
 	// Serve the entire docs directory to make dist/ assets available
 	staticGroup.Static("/dist", "/docs/dist")
 	staticGroup.StaticFile("/admin.html", "/docs/admin.html")
+	staticGroup.StaticFile("/admin.yaml", "/docs/admin.yaml")
 
 	srv := &http.Server{
 		Addr:    ":8001",

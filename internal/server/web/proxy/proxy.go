@@ -229,6 +229,7 @@ func NewProxyServer(log *zap.Logger, mode, privacyMode string, c cache, m KeyMan
 	// Serve the entire docs directory to make dist/ assets available
 	staticGroup.Static("/dist", "/docs/dist")
 	staticGroup.StaticFile("/proxy.html", "/docs/proxy.html")
+	staticGroup.StaticFile("/proxy.yaml", "/docs/proxy.yaml")
 
 	srv := &http.Server{
 		Addr:    ":8002",
